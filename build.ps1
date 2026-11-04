@@ -35,6 +35,8 @@ if ($RunTests) {
     if ($LASTEXITCODE -ne 0) { throw "test javac failed" }
     & $java -cp "$classes;$testClasses" com.hibernet.mclhr.SelfTest
     if ($LASTEXITCODE -ne 0) { throw "self-test failed" }
+    & $java -cp "$classes;$testClasses" com.hibernet.mclhr.LoaderSelfTest
+    if ($LASTEXITCODE -ne 0) { throw "loader self-test failed" }
 }
 
 & $jar --create --file (Join-Path $out "mclhr.jar") --main-class com.hibernet.mclhr.MclhrCli -C $classes .
