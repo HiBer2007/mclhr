@@ -2,6 +2,7 @@ package com.hibernet.mclhr.ext.javafx;
 
 import com.hibernet.mclhr.MclhrException;
 import com.hibernet.mclhr.MclhrLibrary;
+import com.hibernet.mclhr.MclhrProgress;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -40,6 +41,12 @@ public final class JavaFxSupport {
      * @param legacyCacheHome 旧版 HMCL 数据目录（可为 null）
      */
     public static List<Path> resolve(Path store, Path legacyCacheHome) throws MclhrException {
+        return resolve(store, legacyCacheHome, MclhrProgress.NONE);
+    }
+
+    public static List<Path> resolve(Path store, Path legacyCacheHome,
+                                     MclhrProgress progress) throws MclhrException {
+        progress.onProgress("mclhr 解析 JavaFX", 0);
         List<Path> jars = new ArrayList<>();
 
         if (store != null && Files.isDirectory(store)) {
@@ -62,6 +69,7 @@ public final class JavaFxSupport {
             throw new MclhrException("未找到 JavaFX jar（store=" + store
                     + "，legacyCache=" + legacyCacheHome + "）");
         }
+        progress.onProgress("mclhr 已找到 " + jars.size() + " 个 JavaFX 库", 100);
         jars.sort((a, b) -> a.getFileName().toString()
                 .compareToIgnoreCase(b.getFileName().toString()));
         return jars;
