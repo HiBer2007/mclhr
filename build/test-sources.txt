@@ -1,1 +1,0 @@
-"K:/mclhr/src/test/java/com/hibernet/mclhr/SelfTest.java"
