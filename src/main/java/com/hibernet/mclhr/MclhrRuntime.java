@@ -5,17 +5,18 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * mclhr 对外入口。
+ * 兼容入口（旧版 FLFHMCL Agent 使用）。
  *
- * <p>只负责解析库路径；把 jar 追加到 classpath 由宿主（Agent / 启动器）决定。</p>
+ * <p>新代码请直接使用 {@link Mclhr}；这里保留静态方法只是为了避免破坏已有调用方。</p>
  */
+@Deprecated
 public final class MclhrRuntime {
     private MclhrRuntime() {
     }
 
-    /** 解析 JavaFX jar；store 优先，HMCL 缓存回退。 */
+    /** 解析 JavaFX jar（委托给可选扩展 {@code ext.javafx.JavaFxSupport}）。 */
     public static List<Path> resolveJavaFx(Path hmclHome, Path store) throws MclhrException {
-        return JavaFxModule.resolve(store, hmclHome);
+        return com.hibernet.mclhr.ext.javafx.JavaFxSupport.resolve(store, hmclHome);
     }
 
     /** 按清单解析全部库。 */
@@ -26,7 +27,8 @@ public final class MclhrRuntime {
         }
         try {
             String json = Files.readString(manifestFile);
-            return MclhrResolver.resolveAll(MclhrManifest.parse(json).libraries(), stores);
+            Mclhr mclhr = Mclhr.builder().stores(stores).build();
+            return mclhr.resolve(MclhrManifest.parse(json));
         } catch (java.io.IOException e) {
             throw new MclhrException("读取清单失败: " + manifestFile, e);
         }

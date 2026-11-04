@@ -1,4 +1,7 @@
-package com.hibernet.mclhr;
+package com.hibernet.mclhr.ext.javafx;
+
+import com.hibernet.mclhr.MclhrException;
+import com.hibernet.mclhr.MclhrLibrary;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -8,21 +11,35 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** JavaFX 模块解析：共享库仓优先，旧版 HMCL 缓存作为回退。 */
-public final class JavaFxModule {
+/**
+ * 可选扩展：JavaFX 库解析。
+ *
+ * <p>mclhr 核心不依赖 JavaFX；只有需要处理 JavaFX 的启动器才使用本类。</p>
+ *
+ * <p>查找顺序：共享库仓 → 旧版 HMCL 缓存（迁移期兼容）。</p>
+ */
+public final class JavaFxSupport {
     private static final Pattern JAVAFX_JAR = Pattern.compile(
             "^(?:org_openjfx_)?javafx-(base|graphics|controls)[-_].*\\.jar$");
 
-    private JavaFxModule() {
+    private JavaFxSupport() {
+    }
+
+    /** JavaFX 三个标准模块的坐标（便于写入 mclhr.json）。 */
+    public static List<MclhrLibrary> coordinates(String version, String classifier) {
+        return List.of(
+                new MclhrLibrary("org.openjfx", "javafx-base", version, classifier, null),
+                new MclhrLibrary("org.openjfx", "javafx-graphics", version, classifier, null),
+                new MclhrLibrary("org.openjfx", "javafx-controls", version, classifier, null));
     }
 
     /**
      * 解析 JavaFX jar。
      *
-     * @param store   共享库仓（可为 null）
-     * @param hmclHome HMCL 数据目录（可为 null，用于旧缓存回退）
+     * @param store           共享库仓（可为 null）
+     * @param legacyCacheHome 旧版 HMCL 数据目录（可为 null）
      */
-    public static List<Path> resolve(Path store, Path hmclHome) throws MclhrException {
+    public static List<Path> resolve(Path store, Path legacyCacheHome) throws MclhrException {
         List<Path> jars = new ArrayList<>();
 
         if (store != null && Files.isDirectory(store)) {
@@ -37,13 +54,13 @@ public final class JavaFxModule {
             }
         }
 
-        if (jars.isEmpty() && hmclHome != null && Files.isDirectory(hmclHome)) {
-            jars.addAll(scanHmclCache(hmclHome));
+        if (jars.isEmpty() && legacyCacheHome != null && Files.isDirectory(legacyCacheHome)) {
+            jars.addAll(scanHmclCache(legacyCacheHome));
         }
 
         if (jars.isEmpty()) {
             throw new MclhrException("未找到 JavaFX jar（store=" + store
-                    + "，hmclHome=" + hmclHome + "）");
+                    + "，legacyCache=" + legacyCacheHome + "）");
         }
         jars.sort((a, b) -> a.getFileName().toString()
                 .compareToIgnoreCase(b.getFileName().toString()));

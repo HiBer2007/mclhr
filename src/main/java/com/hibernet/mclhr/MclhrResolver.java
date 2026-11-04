@@ -9,22 +9,62 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 在多个 store 中解析库坐标。 */
+/** 在多个 store 中解析库坐标（线程安全，可复用）。 */
 public final class MclhrResolver {
-    private MclhrResolver() {
+    private final List<Path> stores;
+    private final boolean failOnMissing;
+
+    /**
+     * @param stores       按优先级排列的库目录
+     * @param failOnMissing 缺失（且非 optional）时是否抛异常
+     */
+    public MclhrResolver(List<Path> stores, boolean failOnMissing) {
+        List<Path> copy = new ArrayList<>();
+        for (Path store : stores) {
+            if (store != null) {
+                copy.add(store);
+            }
+        }
+        this.stores = List.copyOf(copy);
+        this.failOnMissing = failOnMissing;
+    }
+
+    public List<Path> stores() {
+        return stores;
     }
 
     /**
-     * 按 store 顺序查找库；命中后校验 SHA-1（若清单提供）。
+     * 解析单个库。
      *
-     * @throws MclhrException 找不到或校验失败
+     * @throws MclhrException 找不到（非 optional 且 failOnMissing）或 SHA-1 不匹配
      */
-    public static Path resolve(MclhrLibrary library, List<Path> stores) throws MclhrException {
+    public Path resolve(MclhrLibrary library) throws MclhrException {
+        Path found = find(library);
+        if (found != null) {
+            return found;
+        }
+        if (library.optional() || !failOnMissing) {
+            return null;
+        }
+        throw new MclhrException("找不到库 " + library.coordinate()
+                + "（文件名 " + library.fileName() + "，stores=" + stores + "）");
+    }
+
+    /** 按顺序解析；缺失且允许跳过时忽略。 */
+    public List<Path> resolveAll(List<MclhrLibrary> libraries) throws MclhrException {
+        List<Path> resolved = new ArrayList<>(libraries.size());
+        for (MclhrLibrary library : libraries) {
+            Path path = resolve(library);
+            if (path != null) {
+                resolved.add(path);
+            }
+        }
+        return resolved;
+    }
+
+    private Path find(MclhrLibrary library) throws MclhrException {
         String fileName = library.fileName();
         for (Path store : stores) {
-            if (store == null) {
-                continue;
-            }
             Path candidate = store.resolve(fileName);
             if (!Files.isRegularFile(candidate)) {
                 continue;
@@ -38,17 +78,7 @@ public final class MclhrResolver {
             }
             return candidate;
         }
-        throw new MclhrException("找不到库 " + library.coordinate()
-                + "（文件名 " + fileName + "，stores=" + stores + "）");
-    }
-
-    public static List<Path> resolveAll(List<MclhrLibrary> libraries, List<Path> stores)
-            throws MclhrException {
-        List<Path> resolved = new ArrayList<>(libraries.size());
-        for (MclhrLibrary library : libraries) {
-            resolved.add(resolve(library, stores));
-        }
-        return resolved;
+        return null;
     }
 
     public static String sha1(Path file) throws MclhrException {
